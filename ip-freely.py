@@ -10,10 +10,11 @@ import sys
 import urllib3
 import certifi
 import re
+import socket
 import tempfile
 from subprocess import Popen, PIPE
 from nslookup import Nslookup
-from socket import getaddrinfo
+
 
 
 DEBUG = os.getenv('DEBUG')
@@ -34,18 +35,20 @@ def getargs():
                         default="A", choices=['A', 'AAAA'], type=str.upper)
     parser.add_argument("-r", "--remoteiplookup", default="https://api.ipify.org",
                         help="webservice providing IP lookup")
-    return parser.parse_args()
+    args = parser.parse_args()
+    # TODO support default ipv6 lookup @ https://api64.ipify.org
+    return args
 
 
-def create_nsupdate_contents(server, domain, hostname, newip, ttl, currentips):
+def create_nsupdate_contents(server, domain, hostname, newip, ttl, currentips, dnstype='A'):
     '''create file for nsupdate command'''
     # remove existing records if they exist
-    del_line = "\n".join([f'update delete {hostname}. A {ip}' for ip in currentips])
+    del_line = "\n".join([f'update delete {hostname}. {dnstype} {ip}' for ip in currentips])
     content=f'''server {server}.
 debug yes
 zone {domain}.
 {del_line}
-update add {hostname}. {ttl} A {newip}
+update add {hostname}. {ttl} {dnstype} {newip}
 show
 send
 quit'''
@@ -68,10 +71,18 @@ def run_nsupdate(exe, privkey, conffile):
     return (stdout, stderr, rc)
 
 
-def is_ip(ip):
+def is_ip(ip, dnstype='A'):
     '''check if ip is an ip'''
-    return re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ip)
-
+    if dnstype == 'A':
+        return re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ip)
+    elif dnstype == 'AAAA':
+        try:
+            socket.inet_pton(socket.AF_INET6, ip)
+            return True
+        except socket.error:
+            return False
+    else:
+        return False
 
 def get_remote_ip(remoteiplookup):
     '''lookup external IP'''
@@ -97,7 +108,7 @@ def get_current_ips(hostname, server):
     try:
         # if dns server is not an ip get the IP
         if not is_ip(server):
-            server = getaddrinfo(server, 80)[-1][-1][0]
+            server = socket.getaddrinfo(server, 80)[-1][-1][0]
             if DEBUG:
                 print('get_current_ip: dns server ip: %s' % server)
         dns_server = Nslookup(dns_servers=[server], verbose=False, tcp=False)
