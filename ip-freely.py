@@ -1,4 +1,4 @@
-#!/bin/env python3
+#!env python3
 
 # ip-freely - update IP address based on results from ipify
 # USAGE: ip-freely.py -s ns1.domain.net -n myhome.domain.net -p ~/.priv/domain.net.+157+10183.key
@@ -118,7 +118,10 @@ def get_current_ips(hostname, server, dnstype):
             if DEBUG:
                 print('get_current_ip: dns server ip: %s' % server)
         dns_server = Nslookup(dns_servers=[server], verbose=False, tcp=False)
-        dns_query = dns_server.dns_lookup(hostname)
+        if dnstype == 'A':
+            dns_query = dns_server.dns_lookup(hostname)
+        else:
+            dns_query = dns_server.dns_lookup6(hostname)
         ips = dns_query.answer
         if DEBUG:
             print('get_current_ip: current record: %s' % ips)
