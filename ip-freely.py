@@ -80,15 +80,26 @@ def run_nsupdate(exe, privkey, conffile):
 def is_ip(ip, dnstype):
     '''check if ip is an ip'''
     if dnstype == 'A':
-        return re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ip)
+        return is_ipv4(ip)
     elif dnstype == 'AAAA':
-        try:
-            socket.inet_pton(socket.AF_INET6, ip)
-            return True
-        except socket.error:
-            return False
+        return is_ipv6(ip)
     else:
+        return is_ipv4(ip) or is_ipv6(ip)
+
+
+def is_ipv4(ip):
+    '''check if ip is ipv4'''
+    return re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ip)
+
+
+def is_ipv6(ip):
+    '''check if ip is ipv6'''
+    try:
+        socket.inet_pton(socket.AF_INET6, ip)
+        return True
+    except socket.error:
         return False
+
 
 def get_remote_ip(remoteiplookup, dnstype):
     '''lookup external IP'''
@@ -113,7 +124,7 @@ def get_current_ips(hostname, server, dnstype):
     '''return current IP(s) for hostname from updating DNS server'''
     try:
         # if dns server is not an ip get the IP
-        if not is_ip(server, dnstype):
+        if not is_ip(server, 'ANY'):
             server = socket.getaddrinfo(server, 80)[-1][-1][0]
             if DEBUG:
                 print('get_current_ip: dns server ip: %s' % server)
