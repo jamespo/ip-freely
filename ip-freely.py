@@ -1,4 +1,4 @@
-#!env python3
+#!/bin/env python3
 
 # ip-freely - update IP address based on results from ipify
 # USAGE: ip-freely.py -s ns1.domain.net -n myhome.domain.net -p ~/.priv/domain.net.+157+10183.key
@@ -32,6 +32,8 @@ def getargs():
     parser.add_argument("-n", "--hostname", help="hostname to update DNS for")
     parser.add_argument("-d", "--dnstype", help="DNS type (A|AAAA)",
                         default="A", choices=['A', 'AAAA'], type=str.upper)
+    parser.add_argument("-z", "--deleteonly", help="just delete DNS record", 
+                        action="store_true")
     parser.add_argument("-r", "--remoteiplookup",
                         help="webservice providing IP lookup")
     args = parser.parse_args()
@@ -46,15 +48,19 @@ def getargs():
     return args
 
 
-def create_nsupdate_contents(server, domain, hostname, newip, ttl, currentips, dnstype):
+def create_nsupdate_contents(server, domain, hostname, newip, ttl, 
+                             dnstype, deleteonly):
     '''create file for nsupdate command'''
     # remove existing records if they exist
-    del_line = "\n".join([f'update delete {hostname}. {dnstype} {ip}' for ip in currentips])
+    if DEBUG and deleteonly:
+        print('delete only')
+    del_line = f'update delete {hostname}. {dnstype}'
+    add_line = '' if deleteonly else f'update add {hostname}. {ttl} {dnstype} {newip}'
     content=f'''server {server}.
 debug yes
 zone {domain}.
 {del_line}
-update add {hostname}. {ttl} {dnstype} {newip}
+{add_line}
 show
 send
 quit'''
@@ -157,14 +163,15 @@ def main():
         sys.exit('Invalid IP returned')
     currentips = get_current_ips(args.hostname, args.server, args.dnstype)
     # don't update if record same as new IP
-    if (set([ip]) == set(currentips)) and not args.force:
+    if (set([ip]) == set(currentips)) and not args.force and not args.deleteonly:
         if DEBUG:
             print('%s is %s - unchanged. No update' % (args.hostname, ip))
         sys.exit()
     # get domain from hostname
     domain = '.'.join(args.hostname.split('.')[1:])
     conffile = create_nsupdate_contents(args.server, domain, args.hostname,
-                                        ip, args.ttl, currentips, args.dnstype)
+                                        ip, args.ttl, args.dnstype,
+                                        args.deleteonly)
     (stdout, stderr, rc) = run_nsupdate(args.exe, args.privkey, conffile)
     os.remove(conffile)
     if rc != 0:
