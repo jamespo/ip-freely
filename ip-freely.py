@@ -37,14 +37,13 @@ def getargs():
     parser.add_argument("-r", "--remoteiplookup",
                         help="webservice providing IP lookup")
     args = parser.parse_args()
-    # TODO support default ipv6 lookup @ https://api64.ipify.org
     if args.remoteiplookup is None:
         if args.dnstype == 'A':
             args.remoteiplookup = "https://api.ipify.org"
         else:
             args.remoteiplookup = "https://api64.ipify.org"
-        if DEBUG:
-            print('Set iplookup to %s' % args.remoteiplookup)
+    if DEBUG:
+        print('Set iplookup to %s' % args.remoteiplookup)
     return args
 
 
@@ -74,8 +73,8 @@ quit'''
 
 def run_nsupdate(exe, privkey, conffile):
     '''run the nsupdate cmd'''
-    cmd = (exe, '-k', privkey, '-v', conffile)
-    p = Popen([*cmd], stdout=PIPE, stderr=PIPE)
+    cmd = [exe, '-k', privkey, '-v', conffile]
+    p = Popen(cmd, stdout=PIPE, stderr=PIPE)
     (stdout, stderr) = p.communicate()
     if DEBUG is not None:
         print("%s\n\n%s\n" % (stdout, stderr))
@@ -114,7 +113,9 @@ def get_remote_ip(remoteiplookup, dnstype):
         http = urllib3.PoolManager(
             timeout=timeout,
             cert_reqs='CERT_REQUIRED',
-            ca_certs=certifi.where())
+            ca_certs=certifi.where(),
+            headers={'user-agent': 'ip-freely'}
+        )
         r = http.request("GET", remoteiplookup)
         ip = r.data.decode("utf-8").strip()
         assert is_ip(ip, dnstype)
@@ -180,5 +181,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
-    
