@@ -1,7 +1,7 @@
 ip-freely
 =========
 
-Dynamic DNS updater for BIND. This works similarly to a dyndns style client, but for your own BIND server using dynamic updates.
+Dynamic DNS updater for BIND. This works similarly to a dyndns style client, but for your own BIND server using dynamic updates. Supports IPv4 & IPv6.
 
 usage
 -----
